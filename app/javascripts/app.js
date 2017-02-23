@@ -43,36 +43,37 @@ window.App = {
     });
   },
 
-
-
-
-queryRecheck: function(contract){
-
-    var bn = web3.eth.blockNumber;
-    var logger = contract.LOG_Oraclize_Callback(null, { fromBlock: bn });
-
-    console.log('Waiting on Oraclize queries...');
-
-    return new Promise(function (resolve, reject) {
-        var ctr = setInterval(function () {
-            logger.get(function (error, events) {
-                try {
-                    events.forEach(function (evt) {
-                        if (evt.args.block.toNumber() > bn) {
-                            clearInterval(ctr);
-                            resolve();
-                        }
-                    });
-                } catch (e) {
-                    console.log('Error encountered during query wait: ' + e);
-                    reject(e);
-                }
-            });
-        }, 1000);
-    });
-},
-
  sendRequest: function() {
+   var queryRecheck = function(contract){
+
+       var bn = web3.eth.blockNumber;
+       var logger = contract.LOG_OraclizeCallback(null, { fromBlock: bn });
+
+       console.log('Waiting on Oraclize queries...');
+
+       return new Promise(function (resolve, reject) {
+           var ctr = setInterval(function () {
+               logger.get(function (error, events) {
+                   if (error)
+                        reject(error);
+
+                   try {
+                       if (typeof events !== 'undefined') {
+                           events.forEach(function (evt) {
+                               if (evt.args.block.toNumber() > bn) {
+                                   clearInterval(ctr);
+                                   resolve();
+                               }
+                           });
+                        }
+                   } catch (e) {
+                       //console.log('Error encountered during query wait: ' + e);
+                       //reject(e);
+                   }
+               });
+           }, 1000);
+       });
+   }
    var self = this;
    var fromdata = document.getElementById("from").value;
    var to = document.getElementById("to").value;
@@ -85,7 +86,7 @@ queryRecheck: function(contract){
    console.log(persons);
    console.log(date);
    console.log(time);
-   var timeperiod;     
+   var timeperiod;
    if ((time >= '00:00:00') && (time < '03:00:00')) {
                         timeperiod = '00:00:00';
    } else if ((time >= '03:00:00') && (time < '06:00:00')) {
@@ -104,22 +105,24 @@ queryRecheck: function(contract){
                       timeperiod = '21:00:00';
    }
    var datetime = date + ' ' + timeperiod;
-   console.log(datetime); 
+   console.log(datetime);
 
    var weatherapicallinstance;
    WeatherApiCall.deployed().then(function(instance) {
 
-                          console.log("Initializing"); 
-                          instance.update(to,datetime, {from: account, gas: 3000000})
+                          console.log("Initializing");
+                          instance.update(to,datetime, {from: account, gas: 3000000, value: web3.toWei(1, 'ether')})
                                   .then(function(v){
                                         console.log(v);
                                         console.log("Function Executed");
-                                        queryRecheck(WeatherApiCall);
-                                       
-                                   });
-    
+                                        return queryRecheck(instance);
+                                    }).then(function(events) {
+                                        console.log(events);
+                                    });
+
+
                          }).then(function() {
-                                                 console.log("Testing"); 
+                                                 console.log("Testing");
                          }).catch(function(e) {
                                                   console.log(e);
                          });
@@ -139,4 +142,3 @@ window.addEventListener('load', function() {
   }
   App.start();
 });
-
